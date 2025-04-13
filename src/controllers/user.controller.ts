@@ -1,10 +1,14 @@
 import {
+  authenticate,
+  AuthenticationBindings,
+} from '@loopback/authentication';
+import {inject} from '@loopback/core';
+import {
   Count,
   CountSchema,
   Filter,
-  FilterExcludingWhere,
   repository,
-  Where,
+  Where
 } from '@loopback/repository';
 import {
   del,
@@ -18,6 +22,7 @@ import {
   requestBody,
   response,
 } from '@loopback/rest';
+import {UserProfile} from '@loopback/security';
 import {User} from '../models';
 import {UserRepository} from '../repositories';
 
@@ -111,6 +116,7 @@ export class UserController {
     return this.userRepository.updateAll(user, where);
   }
 
+  /*
   @get('/users/{id}')
   @response(200, {
     description: 'User model instance',
@@ -132,6 +138,7 @@ export class UserController {
     }
     return this.userRepository.findById(id, filter);
   }
+  */
 
   @patch('/users/{id}')
   @response(204, {
@@ -201,6 +208,55 @@ export class UserController {
     }
 
     const user = users[0];
+
+    return {
+      name: user.name,
+      surname: user.surname,
+      number: user.number,
+      email: user.email,
+      roleKey: user.role?.key ?? ''
+    };
+  }
+
+  @authenticate('cognito')
+  @get('users/me')
+  @response(200, {
+    description: 'Current user profile',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            surname: { type: 'string' },
+            email: { type: 'string' },
+            roleKey: { type: 'string' }
+          },
+        },
+      },
+    },
+  })
+  async getCurrentUser(
+    @inject(AuthenticationBindings.CURRENT_USER)
+    currentUser: UserProfile,
+  ): Promise<UserResponse> {
+    console.log('[DEBUG] Recupero profilo utente corrente');
+    const email = currentUser.email;
+
+    console.log('[DEBUG] Email utente dal token:', email);
+    const users = await this.userRepository.find({
+      where: {email},
+      include: [{relation: 'role'}],
+      limit: 1
+    });
+
+    if (!users || users.length === 0) {
+      console.error('[ERROR] Utente non trovato per email:', email);
+      throw new HttpErrors.NotFound(`User not found`);
+    }
+
+    const user = users[0];
+    console.log('[DEBUG] Utente trovato:', user.id);
 
     return {
       name: user.name,

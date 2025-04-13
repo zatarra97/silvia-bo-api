@@ -1,3 +1,4 @@
+import {authenticate} from '@loopback/authentication';
 import {
   Count,
   CountSchema,
@@ -19,7 +20,6 @@ import {
 } from '@loopback/rest';
 import {CategoryItem} from '../models';
 import {CategoryItemRepository} from '../repositories';
-
 export class CategoryItemController {
   constructor(
     @repository(CategoryItemRepository)
@@ -58,6 +58,7 @@ export class CategoryItemController {
     return this.categoryItemRepository.count(where);
   }
 
+  @authenticate('cognito')
   @get('/category-items')
   @response(200, {
     description: 'Array of CategoryItem model instances',

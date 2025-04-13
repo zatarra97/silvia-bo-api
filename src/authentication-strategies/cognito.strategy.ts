@@ -105,7 +105,7 @@ export class CognitoAuthenticationStrategy implements AuthenticationStrategy {
   }
 
   private convertToUserProfile(decodedToken: any): UserProfile {
-    console.log('[DEBUG] Token decodificato:', JSON.stringify(decodedToken, null, 2));
+    //console.log('[DEBUG] Token decodificato:', JSON.stringify(decodedToken, null, 2));
 
     // Per Cognito, l'email potrebbe essere in diversi campi
     const email = decodedToken.email || decodedToken['cognito:email'] || decodedToken.username;

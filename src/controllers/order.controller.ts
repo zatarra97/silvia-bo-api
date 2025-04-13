@@ -153,6 +153,7 @@ export class OrderController {
     return this.orderRepository.count(where);
   }
 
+  @authenticate('cognito')
   @get('/orders')
   @response(200, {
     description: 'Array of Order model instances',
@@ -166,9 +167,86 @@ export class OrderController {
     },
   })
   async find(
+    @inject(AuthenticationBindings.CURRENT_USER)
+    currentUser: UserProfile,
     @param.filter(Order) filter?: Filter<Order>,
   ): Promise<Order[]> {
-    return this.orderRepository.find(filter);
+    console.log('[DEBUG] Inizio processo di recupero ordini');
+    console.log('[DEBUG] Dati utente dal token:', {
+      email: currentUser.email,
+      id: currentUser.id
+    });
+
+    const userEmail = currentUser.email;
+    if (!userEmail) {
+      console.error('[ERROR] Email utente non trovata nel token');
+      throw new HttpErrors.Unauthorized('User email not found in token');
+    }
+
+    console.log('[DEBUG] Ricerca utente per email:', userEmail);
+    const user = await this.userRepository.findOne({
+      where: {email: userEmail},
+      include: ['role']
+    });
+
+    if (!user) {
+      console.error('[ERROR] Utente non trovato per email:', userEmail);
+      throw new HttpErrors.NotFound('User not found');
+    }
+    console.log('[DEBUG] Utente trovato:', {
+      id: user.id,
+      email: user.email,
+      role: user.role ? {
+        id: user.role.id,
+        key: user.role.key,
+        name: user.role.name
+      } : null
+    });
+
+    if (!user.role) {
+      console.error('[ERROR] Ruolo non trovato per l\'utente:', user.id);
+      throw new HttpErrors.Unauthorized('User role not found');
+    }
+
+    let userFilter;
+    if (user.role.key === 'U') {
+      console.log('[DEBUG] Filtro ordini per utente normale (userId):', user.id);
+      userFilter = {
+        ...filter,
+        where: {
+          ...filter?.where,
+          userId: user.id
+        }
+      };
+    } else if (user.role.key === 'M') {
+      console.log('[DEBUG] Ricerca merchant per userId:', user.id);
+      const merchant = await this.merchantRepository.findOne({
+        where: {userId: user.id}
+      });
+
+      if (!merchant) {
+        console.error('[ERROR] Merchant non trovato per userId:', user.id);
+        throw new HttpErrors.NotFound('Merchant not found for this user');
+      }
+
+      console.log('[DEBUG] Merchant trovato con ID:', merchant.id);
+      userFilter = {
+        ...filter,
+        where: {
+          ...filter?.where,
+          merchantId: merchant.id
+        }
+      };
+    } else {
+      console.error('[ERROR] Ruolo utente non valido:', user.role.key);
+      throw new HttpErrors.Unauthorized('Invalid user role');
+    }
+
+    console.log('[DEBUG] Filtro finale applicato:', userFilter);
+    const orders = await this.orderRepository.find(userFilter);
+    console.log('[DEBUG] Numero di ordini trovati:', orders.length);
+
+    return orders;
   }
 
   @patch('/orders')

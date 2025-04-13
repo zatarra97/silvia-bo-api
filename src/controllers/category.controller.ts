@@ -1,4 +1,9 @@
 import {
+  authenticate,
+  AuthenticationBindings,
+} from '@loopback/authentication';
+import {inject} from '@loopback/core';
+import {
   Count,
   CountSchema,
   Filter,
@@ -10,6 +15,7 @@ import {
   del,
   get,
   getModelSchemaRef,
+  HttpErrors,
   param,
   patch,
   post,
@@ -17,13 +23,20 @@ import {
   requestBody,
   response,
 } from '@loopback/rest';
+import {UserProfile} from '@loopback/security';
 import {Category} from '../models';
 import {CategoryRepository} from '../repositories';
+import {MerchantRepository} from '../repositories/merchant.repository';
+import {UserRepository} from '../repositories/user.repository';
 
 export class CategoryController {
   constructor(
     @repository(CategoryRepository)
     public categoryRepository : CategoryRepository,
+    @repository(UserRepository)
+    public userRepository: UserRepository,
+    @repository(MerchantRepository)
+    public merchantRepository: MerchantRepository,
   ) {}
 
   @post('/categories')
@@ -58,6 +71,8 @@ export class CategoryController {
     return this.categoryRepository.count(where);
   }
 
+  //API usata nel pannello di controllo del merchant per recuperare le categorie
+  @authenticate('cognito')
   @get('/categories')
   @response(200, {
     description: 'Array of Category model instances',
@@ -71,22 +86,50 @@ export class CategoryController {
     },
   })
   async find(
+    @inject(AuthenticationBindings.CURRENT_USER) currentUser: UserProfile,
     @param.filter(Category) filter?: Filter<Category>,
-    @param.query.number('merchantId') merchantId?: number,
   ): Promise<Category[]> {
-    console.log(`[DEBUG] Ricerca categorie con filtro:`, filter);
-    if (merchantId) {
-      console.log(`[DEBUG] Filtro aggiuntivo per merchantId: ${merchantId}`);
-      const where = filter?.where || {};
-      filter = {
-        ...filter,
-        where: {
-          ...where,
-          merchantId: merchantId
-        }
-      };
+    console.log('Current user email:', currentUser.email);
+
+    const user = await this.userRepository.findOne({
+      where: {
+        email: currentUser.email,
+      },
+      include: [{relation: 'role'}]
+    });
+
+    if (!user) {
+      throw new HttpErrors.NotFound('User not found');
     }
-    return this.categoryRepository.find(filter);
+
+    console.log('User found:', user);
+
+    if (user.role?.key !== 'M') {
+      throw new HttpErrors.Unauthorized('User is not a merchant');
+    }
+
+    const merchant = await this.merchantRepository.findOne({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    if (!merchant) {
+      throw new HttpErrors.NotFound('Merchant not found');
+    }
+
+    console.log('Merchant found:', merchant);
+
+    const finalFilter: Filter<Category> = {
+      ...filter,
+      where: {
+        ...filter?.where,
+        merchantId: merchant.id,
+      },
+      order: ['order ASC', 'name ASC']
+    };
+
+    return this.categoryRepository.find(finalFilter);
   }
 
   @patch('/categories')
