@@ -1,4 +1,9 @@
 import {
+  authenticate,
+  AuthenticationBindings,
+} from '@loopback/authentication';
+import {inject} from '@loopback/core';
+import {
   Count,
   CountSchema,
   Filter,
@@ -9,6 +14,7 @@ import {
   del,
   get,
   getModelSchemaRef,
+  HttpErrors,
   param,
   patch,
   post,
@@ -16,17 +22,20 @@ import {
   requestBody,
   response
 } from '@loopback/rest';
+import {UserProfile} from '@loopback/security';
 import {Merchant} from '../models';
 import {CategoryItem} from '../models/category-item.model';
 import {Category} from '../models/category.model';
 import {OpeningHour} from '../models/opening-hour.model';
 import {SpecialClosure} from '../models/special-closure.model';
-import {MerchantRepository} from '../repositories';
+import {MerchantRepository, UserRepository} from '../repositories';
 
 export class MerchantController {
   constructor(
     @repository(MerchantRepository)
     public merchantRepository: MerchantRepository,
+    @repository(UserRepository)
+    public userRepository: UserRepository,
   ) {}
 
   @post('/merchants')
@@ -496,5 +505,179 @@ export class MerchantController {
 
     console.log(`[DEBUG] Menu completato con ${menu.length} categorie`);
     return menu;
+  }
+
+  @authenticate('cognito')
+  @get('/merchants/dashboard')
+  @response(200, {
+    description: 'Dashboard data for merchant',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            today: {
+              type: 'object',
+              properties: {
+                orders: {
+                  type: 'object',
+                  properties: {
+                    count: {type: 'number'},
+                    percentageChange: {type: 'number'},
+                    breakdown: {
+                      type: 'object',
+                      properties: {
+                        delivery: {type: 'number'},
+                        pickup: {type: 'number'}
+                      }
+                    }
+                  }
+                },
+                revenue: {
+                  type: 'object',
+                  properties: {
+                    total: {type: 'number'},
+                    percentageChange: {type: 'number'},
+                    avgOrderValue: {type: 'number'}
+                  }
+                },
+                newCustomers: {
+                  type: 'object',
+                  properties: {
+                    count: {type: 'number'},
+                    percentageChange: {type: 'number'}
+                  }
+                },
+                peakHours: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      hour: {type: 'number'},
+                      orders: {type: 'number'}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  async getDashboardData(
+    @inject(AuthenticationBindings.CURRENT_USER)
+    currentUser: UserProfile,
+  ): Promise<object> {
+    console.log('[DEBUG] Recupero dati dashboard');
+    const userEmail = currentUser.email;
+
+    // Trova l'utente e verifica che sia un merchant
+    const user = await this.userRepository.findOne({
+      where: {email: userEmail},
+      include: [{relation: 'role'}]
+    });
+
+    if (!user || user.role?.key !== 'M') {
+      throw new HttpErrors.Unauthorized('User is not a merchant');
+    }
+
+    // Trova il merchant
+    const merchant = await this.merchantRepository.findOne({
+      where: {userId: user.id}
+    });
+
+    if (!merchant) {
+      throw new HttpErrors.NotFound('Merchant not found');
+    }
+
+    // Ottieni la data di oggi (inizio e fine giornata)
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
+    // Ottieni la data di ieri
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const startOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+    const endOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+
+    // Query per ottenere gli ordini di oggi
+    const todayOrdersQuery = `
+      SELECT
+        COUNT(*) as totalOrders,
+        CAST(SUM(total) AS DECIMAL(10,2)) as totalRevenue,
+        COUNT(DISTINCT userId) as totalCustomers,
+        CAST(SUM(CASE WHEN delivery = 1 THEN 1 ELSE 0 END) AS SIGNED) as deliveryOrders,
+        CAST(SUM(CASE WHEN delivery = 0 THEN 1 ELSE 0 END) AS SIGNED) as pickupOrders,
+        HOUR(scheduledAt) as orderHour,
+        COUNT(*) as ordersPerHour
+      FROM \`order\`
+      WHERE merchantId = ?
+      AND scheduledAt BETWEEN ? AND ?
+      GROUP BY HOUR(scheduledAt)
+    `;
+
+    // Esegui query per oggi
+    const todayStats = await this.merchantRepository.dataSource.execute(todayOrdersQuery, [
+      merchant.id,
+      startOfToday,
+      endOfToday
+    ]);
+
+    // Esegui query per ieri (per confronto)
+    const yesterdayStats = await this.merchantRepository.dataSource.execute(todayOrdersQuery, [
+      merchant.id,
+      startOfYesterday,
+      endOfYesterday
+    ]);
+
+    // Calcola le statistiche
+    const todayTotalOrders = parseInt(todayStats.reduce((sum: number, row: any) => sum + Number(row.totalOrders), 0));
+    const todayTotalRevenue = parseFloat(todayStats.reduce((sum: number, row: any) => sum + Number(row.totalRevenue), 0).toFixed(2));
+    const todayNewCustomers = parseInt(todayStats.reduce((sum: number, row: any) => sum + Number(row.totalCustomers), 0));
+    const todayDeliveryOrders = parseInt(todayStats.reduce((sum: number, row: any) => sum + Number(row.deliveryOrders), 0));
+    const todayPickupOrders = parseInt(todayStats.reduce((sum: number, row: any) => sum + Number(row.pickupOrders), 0));
+
+    const yesterdayTotalOrders = parseInt(yesterdayStats.reduce((sum: number, row: any) => sum + Number(row.totalOrders), 0));
+    const yesterdayTotalRevenue = parseFloat(yesterdayStats.reduce((sum: number, row: any) => sum + Number(row.totalRevenue), 0).toFixed(2));
+    const yesterdayNewCustomers = parseInt(yesterdayStats.reduce((sum: number, row: any) => sum + Number(row.totalCustomers), 0));
+
+    // Calcola le variazioni percentuali
+    const calculatePercentageChange = (today: number, yesterday: number) => {
+      if (yesterday === 0) return today > 0 ? 100 : 0;
+      return parseFloat(((today - yesterday) / yesterday * 100).toFixed(2));
+    };
+
+    // Prepara i dati delle ore di punta
+    const peakHours = todayStats
+      .map((row: any) => ({
+        hour: parseInt(row.orderHour),
+        orders: parseInt(row.ordersPerHour)
+      }))
+      .sort((a: any, b: any) => b.orders - a.orders);
+
+    return {
+      today: {
+        orders: {
+          count: todayTotalOrders,
+          percentageChange: calculatePercentageChange(todayTotalOrders, yesterdayTotalOrders),
+          breakdown: {
+            delivery: todayDeliveryOrders,
+            pickup: todayPickupOrders
+          }
+        },
+        revenue: {
+          total: todayTotalRevenue,
+          percentageChange: calculatePercentageChange(todayTotalRevenue, yesterdayTotalRevenue),
+          avgOrderValue: todayTotalOrders > 0 ? parseFloat((todayTotalRevenue / todayTotalOrders).toFixed(2)) : 0
+        },
+        newCustomers: {
+          count: todayNewCustomers,
+          percentageChange: calculatePercentageChange(todayNewCustomers, yesterdayNewCustomers)
+        },
+        peakHours: peakHours
+      }
+    };
   }
 }
