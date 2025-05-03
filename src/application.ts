@@ -29,7 +29,7 @@ export class BackendApplication extends BootMixin(
     this.options.rest = {
       ...this.options.rest,
       cors: {
-        origin: 'http://localhost:5173',
+        origin: ['http://localhost:5173', 'https://www.servertesting.it:443'],
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
         preflightContinue: false,
         optionsSuccessStatus: 204,
