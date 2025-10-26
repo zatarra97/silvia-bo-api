@@ -1,4 +1,3 @@
-import {AuthenticationComponent, registerAuthenticationStrategy} from '@loopback/authentication';
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig} from '@loopback/core';
 import {RepositoryMixin} from '@loopback/repository';
@@ -10,7 +9,6 @@ import {
 import {ServiceMixin} from '@loopback/service-proxy';
 import * as dotenv from 'dotenv';
 import path from 'path';
-import {CognitoAuthenticationStrategy} from './authentication-strategies/cognito.strategy';
 import {MysqlDataSource} from './datasources/mysql.datasource';
 import {MySequence} from './sequence';
 
@@ -43,17 +41,8 @@ export class BackendApplication extends BootMixin(
       },
     };
 
-    // Configure Cognito
-    this.bind('cognito.region').to(process.env.COGNITO_REGION || '');
-    this.bind('cognito.userPoolId').to(process.env.COGNITO_USER_POOL_ID || '');
-    this.bind('cognito.appClientId').to(process.env.COGNITO_APP_CLIENT_ID || '');
-
     // Set up the custom sequence
     this.sequence(MySequence);
-
-    // Configure authentication
-    this.component(AuthenticationComponent);
-    registerAuthenticationStrategy(this, CognitoAuthenticationStrategy);
 
     // Set up default home page
     this.static('/', path.join(__dirname, '../public'));

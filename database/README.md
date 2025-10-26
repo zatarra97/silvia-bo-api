@@ -4,6 +4,15 @@ Questa directory contiene gli script SQL per la gestione del database.
 
 ## Script disponibili
 
+### create_aseat_database.sql
+
+Crea il database `aspeat` e la tabella `ikea_offer` per memorizzare le offerte dei prodotti Ikea.
+
+**Database:**
+- Nome: `aspeat`
+- Charset: utf8mb4
+- Collation: utf8mb4_unicode_ci
+
 ### create_ikea_offer_table.sql
 
 Crea la tabella `ikea_offer` per memorizzare le offerte dei prodotti Ikea recuperate dall'API.
@@ -25,11 +34,24 @@ Crea la tabella `ikea_offer` per memorizzare le offerte dei prodotti Ikea recupe
 
 ## Come eseguire lo script
 
+### Script completo (database + tabella)
+
 ```bash
-# Connessione MySQL
-mysql -u root -p nome_database < database/create_ikea_offer_table.sql
+# Crea il database aspeat e la tabella
+mysql -u root -p < database/create_aseat_database.sql
 
 # Oppure usando il client MySQL
+source database/create_aseat_database.sql;
+```
+
+### Solo la tabella
+
+```bash
+# Connessione MySQL
+mysql -u root -p aspeat < database/create_ikea_offer_table.sql
+
+# Oppure usando il client MySQL
+USE aspeat;
 source database/create_ikea_offer_table.sql;
 ```
 
