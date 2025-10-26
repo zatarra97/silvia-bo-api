@@ -151,7 +151,7 @@ export class IkeaApiService {
       try {
         const response = await this.fetchIkeaOffers(page);
         allProducts.push(...response.content);
-        console.log(`Pagina ${page + 1}/${totalPages} caricata con ${response.content.length} prodotti`);
+        //console.log(`Pagina ${page + 1}/${totalPages} caricata con ${response.content.length} prodotti`);
       } catch (error) {
         console.error(`Errore nel caricamento della pagina ${page + 1}:`, error);
       }
@@ -278,13 +278,13 @@ export class IkeaApiService {
   async processAllOffers(): Promise<void> {
     const products = await this.fetchAllIkeaOffers();
 
-    console.log(`\n=== PROCESSAMENTO IN CORSO ===`);
+    console.log(`\n=== RICERCA IN CORSO ===`);
     console.log(`Totale prodotti trovati: ${products.length}`);
 
     // Salva nel database solo le offerte nuove (vengono loggati solo i nuovi prodotti)
     await this.saveOffersToDatabase(products);
 
-    console.log(`\n=== PROCESSAMENTO COMPLETATO ===`);
+    console.log(`\n=== RICERCA COMPLETATA ===`);
   }
 
   /**

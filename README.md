@@ -30,7 +30,7 @@ Crea un file `.env` nella root del progetto:
 
 ```env
 # Server
-PORT=3005
+PORT=3005  # Su Render usa 10000 (default). In locale puoi usare 3005
 HOST=127.0.0.1  # Per sviluppo locale. Su Render usa 0.0.0.0 o lascia vuoto (default)
 
 # Database MySQL
