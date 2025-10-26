@@ -53,26 +53,6 @@ export class TelegramService {
   }
 
   /**
-   * Crea un messaggio raggruppato per tutti i prodotti nuovi
-   */
-  private formatGroupedMessage(products: TelegramMessage[]): string {
-    let message = `🎉 <b>NUOVE OFFERTE IKEA: ${products.length}</b>\n\n`;
-    message += `─`.repeat(30);
-    message += `\n\n`;
-
-    products.forEach((product, index) => {
-      const escapedName = this.escapeHtml(product.name);
-
-      message += `${index + 1}. <b>${escapedName}</b>\n`;
-      message += `   💰 €${product.price}\n`;
-      message += `   🔗 <a href="${product.url}">Link prodotto</a>\n`;
-      message += `\n`;
-    });
-
-    return message;
-  }
-
-  /**
    * Invia un messaggio singolo a Telegram
    */
   private async sendTelegramMessage(text: string): Promise<void> {
@@ -137,18 +117,16 @@ export class TelegramService {
   }
 
   /**
-   * Invia i nuovi prodotti a Telegram in un messaggio raggruppato
+   * Invia i nuovi prodotti a Telegram, un messaggio per ogni prodotto
    */
   async sendNewProducts(products: TelegramMessage[]): Promise<void> {
     if (products.length === 0) {
       return;
     }
 
-    // Se c'è un solo prodotto
-    if (products.length === 1) {
-      const product = products[0];
-
-      // Se c'è un'immagine, invia la foto con caption sopra
+    // Invio un messaggio separato per ogni prodotto
+    for (const product of products) {
+      // Se c'è un'immagine, invia la foto con caption
       if (product.imageUrl) {
         const message = this.formatProductMessage(product);
         await this.sendTelegramPhoto(product.imageUrl, message);
@@ -157,10 +135,6 @@ export class TelegramService {
         const message = this.formatProductMessage(product);
         await this.sendTelegramMessage(message);
       }
-    } else {
-      // Più prodotti: invia un messaggio raggruppato
-      const message = this.formatGroupedMessage(products);
-      await this.sendTelegramMessage(message);
     }
   }
 
