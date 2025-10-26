@@ -21,8 +21,13 @@ export async function main(options: ApplicationConfig = {}) {
   // Inietta il repository dal context dell'app
   const IkeaOfferRepositoryClass = (await import('./repositories/ikea-offer.repository')).IkeaOfferRepository;
   const ikeaOfferRepository = await app.getRepository(IkeaOfferRepositoryClass);
-  const ikeaService = new IkeaApiService(ikeaOfferRepository);
+
+  const MonitorOfferRepositoryClass = (await import('./repositories/monitor-offer.repository')).MonitorOfferRepository;
+  const monitorOfferRepository = await app.getRepository(MonitorOfferRepositoryClass);
+
+  const ikeaService = new IkeaApiService(ikeaOfferRepository, monitorOfferRepository);
   ikeaService.startScheduledSearch();
+  ikeaService.startMonitoredOffersCheck();
 
   return app;
 }

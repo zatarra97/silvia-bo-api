@@ -139,6 +139,25 @@ export class TelegramService {
   }
 
   /**
+   * Invia notifica quando un oggetto prenotato torna disponibile
+   */
+  async sendAvailabilityNotification(ikeaId: number, name: string, price: number, url: string, imageUrl?: string): Promise<void> {
+    const escapedName = this.escapeHtml(name);
+    const nameUpperCase = escapedName.toUpperCase();
+
+    let message = `🔄 <b>OGGETTO TORNATO DISPONIBILE!</b>\n\n`;
+    message += `📦 ${escapedName}\n`;
+    message += `💰 Prezzo: €${price}\n`;
+    message += `🔗 <a href="${url}">Vedi prodotto</a>`;
+
+    if (imageUrl) {
+      await this.sendTelegramPhoto(imageUrl, message);
+    } else {
+      await this.sendTelegramMessage(message);
+    }
+  }
+
+  /**
    * Test del bot Telegram
    */
   async testBot(): Promise<void> {

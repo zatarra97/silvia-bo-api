@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as cron from 'node-cron';
 import {IkeaOffer as IkeaOfferModel} from '../models';
-import {IkeaOfferRepository} from '../repositories';
+import {IkeaOfferRepository, MonitorOfferRepository} from '../repositories';
 import {TelegramService} from './telegram.service';
 
 export interface IkeaOffer {
@@ -56,13 +56,33 @@ export interface IkeaApiResponse {
   empty: boolean;
 }
 
+export interface IkeaOfferDetail {
+  id: number;
+  title: string;
+  description: string;
+  price: number;
+  state: string;
+  images: Array<{
+    url: string;
+    display_order: number;
+  }>;
+  media_list: Array<{
+    url: string;
+    displayOrder: number;
+    type: string;
+  }>;
+}
+
 export class IkeaApiService {
   private cronJob: cron.ScheduledTask | null = null;
+  private cronJobMonitor: cron.ScheduledTask | null = null;
   private ikeaOfferRepository: IkeaOfferRepository;
+  private monitorOfferRepository: MonitorOfferRepository | null = null;
   private telegramService: TelegramService;
 
-  constructor(ikeaOfferRepository?: IkeaOfferRepository) {
+  constructor(ikeaOfferRepository?: IkeaOfferRepository, monitorOfferRepository?: MonitorOfferRepository) {
     this.ikeaOfferRepository = ikeaOfferRepository as IkeaOfferRepository;
+    this.monitorOfferRepository = monitorOfferRepository || null;
     this.telegramService = new TelegramService();
   }
 
@@ -315,6 +335,120 @@ export class IkeaApiService {
    */
   isScheduledSearchActive(): boolean {
     return this.cronJob !== null;
+  }
+
+  /**
+   * Recupera i dettagli di una singola offerta dall'API Ikea
+   */
+  async fetchOfferDetails(ikeaId: number): Promise<IkeaOfferDetail | null> {
+    try {
+      const url = `https://web-api.ikea.com/circular/circular-asis/api/public/offer/it/it/${ikeaId}`;
+      const response = await axios.get<IkeaOfferDetail>(url);
+      return response.data;
+    } catch (error) {
+      console.error(`Errore nel recupero dettagli offerta ${ikeaId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Controlla tutte le offerte monitorate e notifica se sono tornate disponibili
+   */
+  async checkMonitoredOffers(): Promise<void> {
+    if (!this.monitorOfferRepository) {
+      console.log('⚠️  MonitorOfferRepository non configurato');
+      return;
+    }
+
+    try {
+      // Recupera tutte le offerte monitorate
+      const monitoredOffers = await this.monitorOfferRepository.find();
+
+      if (monitoredOffers.length === 0) {
+        return;
+      }
+
+      console.log(`\n[MONITOR] Controllo ${monitoredOffers.length} offerte monitorate...`);
+
+      for (const monitoredOffer of monitoredOffers) {
+        const offerDetails = await this.fetchOfferDetails(monitoredOffer.ikeaId);
+
+        if (!offerDetails) {
+          console.log(`⚠️  Non è stato possibile recuperare i dettagli per l'offerta ${monitoredOffer.ikeaId}`);
+          continue;
+        }
+
+        // Se lo stato non è RESERVED, l'oggetto è disponibile
+        if (offerDetails.state !== 'RESERVED') {
+          console.log(`✅ Offerta ${monitoredOffer.ikeaId} (${monitoredOffer.name}) è tornata disponibile! Stato: ${offerDetails.state}`);
+
+          // Invia notifica Telegram se configurato
+          if (this.telegramService.isConfigured()) {
+            const imageUrl = offerDetails.media_list?.find(m => m.type === 'MAIN_PRODUCT_IMAGE')?.url;
+            const url = `https://www.ikea.com/it/it/circular/second-hand/#/bari/${monitoredOffer.ikeaId}`;
+
+            await this.telegramService.sendAvailabilityNotification(
+              monitoredOffer.ikeaId,
+              monitoredOffer.name,
+              offerDetails.price,
+              url,
+              imageUrl
+            );
+          }
+
+          // Rimuovi l'offerta dalla lista monitorata dopo la notifica
+          await this.monitorOfferRepository.deleteById(monitoredOffer.id);
+          console.log(`🗑️  Offerta ${monitoredOffer.ikeaId} rimossa dalla lista monitorata`);
+        } else {
+          console.log(`⏳ Offerta ${monitoredOffer.ikeaId} (${monitoredOffer.name}) ancora riservata`);
+        }
+      }
+    } catch (error) {
+      console.error('[MONITOR] Errore durante il controllo delle offerte monitorate:', error);
+    }
+  }
+
+  /**
+   * Avvia il cron job per il monitoraggio delle offerte (ogni minuto)
+   */
+  startMonitoredOffersCheck(): void {
+    if (this.cronJobMonitor) {
+      console.log('Il cron job per il monitoraggio è già attivo');
+      return;
+    }
+
+    if (!this.monitorOfferRepository) {
+      console.log('⚠️  MonitorOfferRepository non configurato. Monitoraggio offerte non avviato.');
+      return;
+    }
+
+    console.log('Avvio cron job per il monitoraggio delle offerte (ogni minuto)...');
+
+    // Esegue subito il primo controllo
+    this.checkMonitoredOffers().catch(err => {
+      console.error('Errore nel controllo iniziale offerte monitorate:', err);
+    });
+
+    // Schedula l'esecuzione ogni minuto
+    this.cronJobMonitor = cron.schedule('* * * * *', () => {
+      console.log('\n[MONITOR] Controllo stato offerte monitorate...');
+      this.checkMonitoredOffers().catch(err => {
+        console.error('[MONITOR] Errore durante il controllo offerte:', err);
+      });
+    });
+
+    console.log('Cron job di monitoraggio avviato con successo');
+  }
+
+  /**
+   * Ferma il cron job di monitoraggio
+   */
+  stopMonitoredOffersCheck(): void {
+    if (this.cronJobMonitor) {
+      this.cronJobMonitor.stop();
+      this.cronJobMonitor = null;
+      console.log('Cron job di monitoraggio fermato');
+    }
   }
 }
 
