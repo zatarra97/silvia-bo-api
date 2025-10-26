@@ -44,7 +44,7 @@ export class TelegramService {
   private formatProductMessage(product: TelegramMessage): string {
     const escapedName = this.escapeHtml(product.name);
     const nameUpperCase = escapedName.toUpperCase();
-    
+
     let message = `<b>${nameUpperCase}</b>\n\n`;
     message += `💰 Prezzo: €${product.price}\n`;
     message += `🔗 <a href="${product.url}">Vedi prodotto</a>`;
@@ -147,7 +147,7 @@ export class TelegramService {
     // Se c'è un solo prodotto
     if (products.length === 1) {
       const product = products[0];
-      
+
       // Se c'è un'immagine, invia la foto con caption sopra
       if (product.imageUrl) {
         const message = this.formatProductMessage(product);

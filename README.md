@@ -1,161 +1,109 @@
-# backend
+# IkeaMimir - Monitor Prodotti Ikea Circolarità
 
-This application is generated using [LoopBack 4 CLI](https://loopback.io/doc/en/lb4/Command-line-interface.html) with the
-[initial project layout](https://loopback.io/doc/en/lb4/Loopback-application-layout.html).
+## 📋 Cos'è questo progetto?
 
-## Install dependencies
+IkeaMimir è un sistema di monitoraggio automatico che monitora i prodotti Ikea della sezione **Angolo della circolarità** per rimanere sempre aggiornati sugli ultimi arrivi.
 
-By default, dependencies were installed when this application was generated.
-Whenever dependencies in `package.json` are changed, run the following command:
+Il sistema controlla periodicamente l'inventario di prodotti usati Ikea, trova le offerte più convenienti e ti avvisa tramite Telegram quando arrivano nuovi prodotti.
 
-```sh
+## ✨ Funzionalità
+
+- 🔄 **Monitoraggio automatico**: Controlla ogni 5 minuti i nuovi prodotti in arrivo
+- 💾 **Database MySQL**: Salva tutte le offerte trovate
+- 🎯 **Migliori offerte**: Seleziona automaticamente l'offerta con il prezzo più basso per ogni prodotto
+- 📱 **Notifiche Telegram**: Ricevi messaggi su Telegram quando arrivano nuovi prodotti
+- 🖼️ **Immagini e dettagli**: Ogni notifica include foto, prezzo e link diretto
+
+## 🚀 Installazione
+
+```bash
+# Installa le dipendenze
 npm install
+
+# Copia il file .env di esempio e configura le variabili
+cp .env.example .env
 ```
 
-To only install resolved dependencies in `package-lock.json`:
+## ⚙️ Configurazione
 
-```sh
-npm ci
-```
-
-## Run the application
-
-```sh
-npm start
-```
-
-You can also run `node .` to skip the build step.
-
-Open http://127.0.0.1:3000 in your browser.
-
-## Rebuild the project
-
-To incrementally build the project:
-
-```sh
-npm run build
-```
-
-To force a full build by cleaning up cached artifacts:
-
-```sh
-npm run rebuild
-```
-
-## Fix code style and formatting issues
-
-```sh
-npm run lint
-```
-
-To automatically fix such issues:
-
-```sh
-npm run lint:fix
-```
-
-## Other useful commands
-
-- `npm run migrate`: Migrate database schemas for models
-- `npm run openapi-spec`: Generate OpenAPI spec into a file
-- `npm run docker:build`: Build a Docker image for this application
-- `npm run docker:run`: Run this application inside a Docker container
-
-## Tests
-
-```sh
-npm test
-```
-
-## Configurazione Variabili d'Ambiente
-
-Crea un file `.env` nella root del progetto con le seguenti variabili:
+Crea un file `.env` nella root del progetto:
 
 ```env
-# Porta del server
+# Server
 PORT=3005
 HOST=127.0.0.1
-
-# CORS Frontend URL
-CORS_FRONTEND=http://localhost:3000
 
 # Database MySQL
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_USER=root
-MYSQL_PASSWORD=
-MYSQL_DATABASE=ikea_db
+MYSQL_PASSWORD=tua_password
+MYSQL_DATABASE=aspeat
 
-# Cognito (se necessario)
-COGNITO_REGION=
-COGNITO_USER_POOL_ID=
-COGNITO_APP_CLIENT_ID=
-
-# IKEA API Configuration
+# Configurazione Ikea API
 IKEA_ENDPOINT_URL=https://web-api.ikea.com/circular/circular-asis/offers/grouped/search
 IKEA_LANGUAGE_CODE=it
 IKEA_PAGE_SIZE=32
 IKEA_STORE_IDS=356
 IKEA_SEARCH_INTERVAL_MINUTES=5
-IKEA_PRODUCT_DETAIL_BASE_URL=https://www.ikea.com/it/it/circular/second-hand/#/bari/
 
-# Telegram Bot Configuration (opzionale)
+# Telegram Bot (opzionale)
 TELEGRAM_BOT_TOKEN=il_tuo_bot_token
-TELEGRAM_CHAT_ID=l_id_del_canale
+TELEGRAM_CHAT_ID=il_tuo_chat_id
 ```
 
-## Funzionalità Ikea API
+## 🗄️ Database
 
-Il backend include integrazione con l'API Ikea per recuperare prodotti in offerta.
+Crea il database:
 
-### Comportamento automatico:
+```bash
+mysql -u root -p < database/create_aseat_database.sql
+```
 
-**All'avvio del backend**, il sistema avvia automaticamente un cron job che:
+Oppure da MySQL Workbench: esegui `database/create_aseat_database.sql`
 
-- Esegue immediatamente una ricerca completa dei prodotti
-- Ripete la ricerca automaticamente ogni 5 minuti (configurabile tramite `IKEA_SEARCH_INTERVAL_MINUTES`)
-- Logga le informazioni delle migliori offerte per ogni prodotto
+## ▶️ Avvio
 
-### Endpoint disponibili (opzionali):
+```bash
+# Avvia il server
+npm start
+```
 
-- `GET /ikea/start-search` - Forza l'esecuzione immediata della ricerca manuale
-- `GET /ikea/test-single-page` - Test per ottenere la prima pagina di risultati
-- `GET /ikea/test-telegram` - Test del bot Telegram e invio di un messaggio di prova
+## 📱 Configurazione Telegram (Opzionale)
 
-### Come funziona:
+1. Crea un bot Telegram tramite `@BotFather`
+2. Crea un canale/gruppo Telegram
+3. Aggiungi il bot al canale come amministratore
+4. Ottieni il chat ID (vedi `docs/TELEGRAM_BOT_SETUP.md`)
+5. Aggiungi `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID` nel file `.env`
+6. Testa: `GET http://localhost:3005/ikea/test-telegram`
 
-1. Il sistema recupera automaticamente tutte le pagine di prodotti disponibili
-2. Per ogni prodotto, seleziona l'offerta con il prezzo più basso
-3. Logga le informazioni dell'offerta selezionata:
-   - **ID**: Identificativo dell'offerta
-   - **Descrizione**: Descrizione del prodotto
-   - **Prezzo**: Prezzo dell'offerta con valuta
-   - **URL**: Link diretto al prodotto (base URL + ID)
-   - **Immagine**: URL dell'immagine principale del prodotto (heroImage)
+## 🔄 Come funziona
 
-### Configurazione:
+1. **All'avvio** il sistema esegue immediatamente una ricerca
+2. **Ogni 5 minuti** controlla automaticamente i nuovi arrivi
+3. **Salva nel database** tutte le offerte trovate
+4. **Invia notifiche Telegram** solo per i prodotti nuovi (non al primo avvio)
 
-L'intervallo tra le ricerche automatiche può essere configurato tramite la variabile d'ambiente `IKEA_SEARCH_INTERVAL_MINUTES` (valore di default: 5 minuti).
+## 📊 Endpoint API
 
-### Notifiche Telegram:
+- `GET /ping` - Verifica che il server sia online
+- `GET /ikea/start-search` - Esegue manualmente una ricerca
+- `GET /ikea/test-telegram` - Test del bot Telegram
 
-Il sistema può inviare automaticamente i nuovi prodotti trovati a un canale Telegram.
+## 🛠️ Comandi Utili
 
-**Per configurare Telegram:**
+```bash
+npm run build      # Compila il progetto
+npm run lint       # Controlla il codice
+npm test           # Esegue i test
+```
 
-1. Segui la guida in `docs/TELEGRAM_BOT_SETUP.md` per creare il bot e il canale
-2. Aggiungi le variabili `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID` nel file `.env`
-3. Testa la configurazione chiamando `GET /ikea/test-telegram`
+## 📚 Documentazione
 
-Quando vengono trovati nuovi prodotti, verranno inviati automaticamente al canale Telegram configurato.
+- [Setup Telegram Bot](docs/TELEGRAM_BOT_SETUP.md)
+- [Database](database/README.md)
 
-**Nota importante sul primo avvio:**
+## 🤝 Contribuire
 
-Al primo avvio dell'applicazione (quando il database è vuoto), tutte le offerte disponibili verranno caricate nel database ma **non verranno inviate notifiche Telegram** per evitare di inondare il canale con centinaia di messaggi. Le notifiche verranno inviate solo per le nuove offerte rilevate nelle esecuzioni successive del cron job.
-
-## What's next
-
-Please check out [LoopBack 4 documentation](https://loopback.io/doc/en/lb4/) to
-understand how you can continue to add features to this application.
-
-[![LoopBack](<https://github.com/loopbackio/loopback-next/raw/master/docs/site/imgs/branding/Powered-by-LoopBack-Badge-(blue)-@2x.png>)](http://loopback.io/)
+Questo progetto è sviluppato per uso personale. Sentiti libero di fare fork e miglioramenti!
