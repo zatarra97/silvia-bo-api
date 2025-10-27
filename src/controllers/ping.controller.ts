@@ -1,6 +1,7 @@
 import {inject} from '@loopback/core';
 import {
   get,
+  operation,
   Request,
   response,
   ResponseObject,
@@ -45,5 +46,14 @@ export class PingController {
       date: new Date().toISOString(),
       status: 'online',
     };
+  }
+
+  // Map to `HEAD /ping`
+  @operation('head', '/ping')
+  @response(200, PING_RESPONSE_JSON)
+  async pingHead(): Promise<object> {
+    // HEAD requests typically return no body, only headers
+    // LoopBack will still use the response schema for documentation
+    return {};
   }
 }
