@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "0.0.1",
-  "description": "Backend della piattaforma aspeat",
+  "description": "Backend LoopBack per piattaforma di vetrina casa produzione video",
   "keywords": [
     "loopback-application",
     "loopback"
@@ -60,14 +60,11 @@
     "@loopback/security": "^0.11.12",
     "@loopback/service-proxy": "^7.0.12",
     "@types/cors": "^2.8.17",
-    "@types/node-cron": "^3.0.11",
-    "axios": "^1.12.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.2.0",
     "loopback-connector-mysql": "^7.1.1",
-    "node-cron": "^4.2.1",
     "tslib": "^2.0.0"
   },
   "devDependencies": {

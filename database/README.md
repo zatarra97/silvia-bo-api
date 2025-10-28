@@ -4,59 +4,40 @@ Questa directory contiene gli script SQL per la gestione del database.
 
 ## Script disponibili
 
-### create_aseat_database.sql
+### create_works_table.sql
 
-Crea il database `aspeat` e la tabella `ikea_offer` per memorizzare le offerte dei prodotti Ikea.
-
-**Database:**
-- Nome: `aspeat`
-- Charset: utf8mb4
-- Collation: utf8mb4_unicode_ci
-
-### create_ikea_offer_table.sql
-
-Crea la tabella `ikea_offer` per memorizzare le offerte dei prodotti Ikea recuperate dall'API.
+Crea la tabella `works` per memorizzare i lavori della piattaforma di vetrina.
 
 **Campi:**
 
-- `ikeaId`: ID univoco dell'offerta Ikea (INDEX UNIQUE)
-- `name`: Descrizione del prodotto
-- `price`: Prezzo dell'offerta
-- `url`: URL del prodotto
-- `imageUrl`: URL dell'immagine principale
-- `createdAt` / `updatedAt`: Timestamp automatici
+- `id`: ID univoco del lavoro (AUTO_INCREMENT PRIMARY KEY)
+- `titolo`: Titolo del lavoro (VARCHAR 200, nullable)
+- `tipo`: Tipo di lavoro (VARCHAR 200, nullable)
+- `cast_membri`: Cast del lavoro in formato JSON (nullable)
+- `gallery`: Gallery del lavoro in formato JSON (nullable)
+- `status`: Status del lavoro, può essere 'draft' o 'published' (default: 'draft')
+- `created_at` / `updated_at`: Timestamp automatici
 
 **Indici:**
 
-- `unique_ikeaId`: Assicura che ogni offerta sia univoca
-- `idx_price`: Per ordinare/filtrare per prezzo
-- `idx_createdAt`: Per ordinare per data di inserimento
+- `idx_status`: Per filtrare per status
+- `idx_created_at`: Per ordinare per data di creazione
 
 ## Come eseguire lo script
 
-### Script completo (database + tabella)
-
-```bash
-# Crea il database aspeat e la tabella
-mysql -u root -p < database/create_aseat_database.sql
-
-# Oppure usando il client MySQL
-source database/create_aseat_database.sql;
-```
-
-### Solo la tabella
-
 ```bash
 # Connessione MySQL
-mysql -u root -p aspeat < database/create_ikea_offer_table.sql
+mysql -u root -p nome_database < database/create_works_table.sql
 
 # Oppure usando il client MySQL
-USE aspeat;
-source database/create_ikea_offer_table.sql;
+mysql -u root -p
+USE nome_database;
+source database/create_works_table.sql;
 ```
 
 ## Note
 
 - La tabella utilizza engine InnoDB
 - Charset: utf8mb4 (supporta emoji e caratteri speciali)
-- Timestamp automatici per createdAt e updatedAt
+- Timestamp automatici per created_at e updated_at
+- Tutti i campi sono nullable per permettere salvataggi parziali (bozza)

@@ -1,0 +1,17 @@
+CREATE DATABASE IF NOT EXISTS `giopie`
+  DEFAULT CHARACTER SET utf8mb4
+  DEFAULT COLLATE utf8mb4_unicode_ci;
+
+USE `giopie`;
+
+CREATE TABLE IF NOT EXISTS works (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `titolo` VARCHAR(200) DEFAULT NULL,
+  `tag` VARCHAR(200) DEFAULT NULL,
+  `cast` json DEFAULT NULL,
+  `gallery` JSON DEFAULT NULL,
+  `status` ENUM('draft', 'published') DEFAULT 'draft',
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
