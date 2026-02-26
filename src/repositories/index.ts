@@ -1,2 +1,1 @@
-export * from './work.repository';
-
+export * from './service.repository';

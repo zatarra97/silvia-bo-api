@@ -1,2 +1,1 @@
-export * from './work.model';
-
+export * from './service.model';

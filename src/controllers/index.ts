@@ -1,3 +1,3 @@
-export * from './ping.controller';
-export * from './work.controller';
+export * from './dashboard.controller';
+export * from './service.controller';
 

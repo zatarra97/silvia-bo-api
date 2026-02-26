@@ -1,3 +1,7 @@
+import {
+  AuthenticationComponent,
+  registerAuthenticationStrategy,
+} from '@loopback/authentication';
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig} from '@loopback/core';
 import {RepositoryMixin} from '@loopback/repository';
@@ -9,6 +13,7 @@ import {
 import {ServiceMixin} from '@loopback/service-proxy';
 import * as dotenv from 'dotenv';
 import path from 'path';
+import {CognitoAuthenticationStrategy} from './authentication';
 import {MysqlDataSource} from './datasources/mysql.datasource';
 import {MySequence} from './sequence';
 
@@ -52,6 +57,10 @@ export class BackendApplication extends BootMixin(
       path: '/explorer',
     });
     this.component(RestExplorerComponent);
+
+    // Autenticazione Cognito
+    this.component(AuthenticationComponent);
+    registerAuthenticationStrategy(this, CognitoAuthenticationStrategy);
 
     // Configure the MySQL datasource
     this.dataSource(MysqlDataSource);

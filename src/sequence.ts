@@ -1,3 +1,9 @@
+import {
+  AuthenticateFn,
+  AuthenticationBindings,
+  AUTHENTICATION_STRATEGY_NOT_FOUND,
+  USER_PROFILE_NOT_FOUND,
+} from '@loopback/authentication';
 import {inject} from '@loopback/core';
 import {
   FindRoute,
@@ -19,28 +25,53 @@ export class MySequence implements SequenceHandler {
     @inject(SequenceActions.INVOKE_METHOD) protected invoke: InvokeMethod,
     @inject(SequenceActions.SEND) public send: Send,
     @inject(SequenceActions.REJECT) public reject: Reject,
-  ) { }
+    @inject(AuthenticationBindings.AUTH_ACTION)
+    protected authenticateRequest: AuthenticateFn,
+  ) {}
 
   async handle(context: RequestContext) {
     const {request, response} = context;
 
-    // Aggiungi gli header CORS alla risposta
-    response.setHeader('Access-Control-Allow-Origin', process.env.CORS_FRONTEND || '');
+    // Header CORS
+    response.setHeader(
+      'Access-Control-Allow-Origin',
+      process.env.CORS_FRONTEND || '',
+    );
     response.setHeader('Access-Control-Allow-Credentials', 'true');
-    response.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
-    response.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    response.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET,HEAD,PUT,PATCH,POST,DELETE',
+    );
+    response.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type,Authorization',
+    );
 
-    // Gestisci le richieste OPTIONS (preflight)
+    // Preflight OPTIONS
     if (request.method === 'OPTIONS') {
       response.statusCode = 204;
       response.end();
       return;
     }
 
-    const route = this.findRoute(request);
-    const args = await this.parseParams(request, route);
-    const result = await this.invoke(route, args);
-
-    this.send(response, result);
+    try {
+      const route = this.findRoute(request);
+      // Esegue l'autenticazione prima di invocare il controller.
+      // Per le route senza @authenticate, authenticateRequest è un no-op.
+      await this.authenticateRequest(request);
+      const args = await this.parseParams(request, route);
+      const result = await this.invoke(route, args);
+      this.send(response, result);
+    } catch (err: unknown) {
+      const error = err as {code?: string; statusCode?: number};
+      // Se la strategia non è trovata o il profilo utente manca, restituiamo 401
+      if (
+        error.code === AUTHENTICATION_STRATEGY_NOT_FOUND ||
+        error.code === USER_PROFILE_NOT_FOUND
+      ) {
+        error.statusCode = 401;
+      }
+      this.reject(context, err as Error);
+    }
   }
 }
