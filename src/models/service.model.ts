@@ -11,6 +11,13 @@ export class Service extends Entity {
 
   @property({
     type: 'string',
+    mysql: {dataType: 'VARCHAR', dataLength: 36},
+    index: {unique: true},
+  })
+  publicId?: string;
+
+  @property({
+    type: 'string',
     required: true,
     mysql: {dataType: 'VARCHAR', dataLength: 200},
   })

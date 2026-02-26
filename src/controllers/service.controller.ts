@@ -1,5 +1,6 @@
 import {authenticate} from '@loopback/authentication';
 import {inject} from '@loopback/core';
+import {randomUUID} from 'crypto';
 import {
   Count,
   CountSchema,
@@ -51,6 +52,7 @@ export class ServiceController {
     service: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>,
   ): Promise<Service> {
     requireAdmin(currentUser);
+    service.publicId = randomUUID();
     return this.serviceRepository.create(service);
   }
 

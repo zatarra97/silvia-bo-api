@@ -7,3 +7,10 @@ export function requireAdmin(user: UserProfile): void {
     throw new HttpErrors.Forbidden('Accesso riservato agli amministratori.');
   }
 }
+
+export function requireUser(user: UserProfile): void {
+  const groups: string[] = (user as any).groups ?? [];
+  if (!groups.includes('User') && !groups.includes('Admin')) {
+    throw new HttpErrors.Forbidden('Accesso riservato agli utenti registrati.');
+  }
+}
