@@ -16,6 +16,30 @@ import {Order} from '../models';
 import {OrderRepository} from '../repositories';
 import {requireUser} from '../utils/authorization';
 
+function normalizeWeddingDate(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new HttpErrors.BadRequest(
+      'weddingDate deve essere una stringa nel formato YYYY-MM-DD.',
+    );
+  }
+
+  const trimmedValue = value.trim();
+  const datePrefixMatch = trimmedValue.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (datePrefixMatch) {
+    return datePrefixMatch[1];
+  }
+
+  const parsedDate = new Date(trimmedValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new HttpErrors.BadRequest(
+      'weddingDate non valida. Usa il formato YYYY-MM-DD.',
+    );
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
+}
+
 @authenticate('cognito')
 export class UserOrderController {
   constructor(
@@ -41,8 +65,10 @@ export class UserOrderController {
   ): Promise<Order> {
     requireUser(currentUser);
     const email: string = (currentUser as any).email ?? '';
+    const weddingDate = normalizeWeddingDate(body.weddingDate);
     const order = await this.orderRepository.create({
       ...body,
+      weddingDate,
       publicId: randomUUID(),
       userEmail: email,
       status: 'pending',
