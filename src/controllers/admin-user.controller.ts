@@ -33,6 +33,7 @@ export interface CognitoUserRecord {
   enabled: boolean;
   status: string;
   createdAt?: Date;
+  lastAccessAt?: Date;
   isAdmin: boolean;
 }
 
@@ -84,6 +85,7 @@ export class AdminUserController {
         enabled: u.Enabled ?? true,
         status: u.UserStatus ?? '',
         createdAt: u.UserCreateDate,
+        lastAccessAt: u.UserLastModifiedDate,
         isAdmin: adminUsernames.has(u.Username ?? ''),
       };
     });
