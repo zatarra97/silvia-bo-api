@@ -1,10 +1,8 @@
-export * from './admin-conversation.controller';
-export * from './admin-order.controller';
-export * from './admin-user.controller';
-export * from './dashboard.controller';
-export * from './service.controller';
-export * from './user-conversation.controller';
-export * from './user-order.controller';
 export * from './ping.controller';
-export * from './user-service.controller';
-
+export * from './ward-of-admission.controller';
+export * from './site-of-isolation.controller';
+export * from './antimicrobial-therapy.controller';
+export * from './bsi-pathogen.controller';
+export * from './resistance-profile.controller';
+export * from './ast-antibiotic.controller';
+export * from './patient.controller';
