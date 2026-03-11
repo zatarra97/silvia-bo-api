@@ -3,6 +3,7 @@ import {PatientIsolationSite} from './patient-isolation-site.model';
 import {PatientBsiPathogen} from './patient-bsi-pathogen.model';
 import {PatientEmpiricalTherapy} from './patient-empirical-therapy.model';
 import {PatientTargetedTherapy} from './patient-targeted-therapy.model';
+import {PatientIcPathogen} from './patient-ic-pathogen.model';
 
 @model({
   name: 'patients',
@@ -141,6 +142,9 @@ export class Patient extends Entity {
   @hasMany(() => PatientTargetedTherapy, {keyTo: 'patientId'})
   targetedTherapies?: PatientTargetedTherapy[];
 
+  @hasMany(() => PatientIcPathogen, {keyTo: 'patientId'})
+  infectiousComplications?: PatientIcPathogen[];
+
   constructor(data?: Partial<Patient>) {
     super(data);
   }
@@ -151,5 +155,6 @@ export interface PatientRelations {
   bsiPathogens?: PatientBsiPathogen[];
   empiricalTherapies?: PatientEmpiricalTherapy[];
   targetedTherapies?: PatientTargetedTherapy[];
+  infectiousComplications?: PatientIcPathogen[];
 }
 export type PatientWithRelations = Patient & PatientRelations;

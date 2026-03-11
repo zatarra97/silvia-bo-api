@@ -7,6 +7,9 @@ SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
 USE `sissoftware`;
 
 -- Drop tables in correct order (children first)
+DROP TABLE IF EXISTS `patient_ic_ast_results`;
+DROP TABLE IF EXISTS `patient_ic_resistance_profiles`;
+DROP TABLE IF EXISTS `patient_ic_pathogens`;
 DROP TABLE IF EXISTS `patient_bsi_ast_results`;
 DROP TABLE IF EXISTS `patient_bsi_resistance_profiles`;
 DROP TABLE IF EXISTS `patient_bsi_pathogens`;
@@ -191,4 +194,51 @@ CREATE TABLE `patient_targeted_therapies` (
         REFERENCES `patients`(`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_ptt_therapy` FOREIGN KEY (`antimicrobial_therapy_id`)
         REFERENCES `antimicrobial_therapies`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Patient infectious complication pathogens (1:N with patient)
+CREATE TABLE `patient_ic_pathogens` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `patient_id` INT NOT NULL,
+    `bsi_pathogen_id` INT NOT NULL,
+    `pathogen_order` TINYINT NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uq_patient_ic_order` (`patient_id`, `pathogen_order`),
+    INDEX `idx_pic_patient` (`patient_id`),
+    INDEX `idx_pic_pathogen` (`bsi_pathogen_id`),
+    CONSTRAINT `fk_pic_patient` FOREIGN KEY (`patient_id`)
+        REFERENCES `patients`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_pic_pathogen` FOREIGN KEY (`bsi_pathogen_id`)
+        REFERENCES `bsi_pathogens`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Patient IC resistance profiles (1:N per IC pathogen)
+CREATE TABLE `patient_ic_resistance_profiles` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `patient_ic_pathogen_id` INT NOT NULL,
+    `resistance_profile_id` INT NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_picrp_ic` (`patient_ic_pathogen_id`),
+    INDEX `idx_picrp_profile` (`resistance_profile_id`),
+    CONSTRAINT `fk_picrp_ic` FOREIGN KEY (`patient_ic_pathogen_id`)
+        REFERENCES `patient_ic_pathogens`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_picrp_profile` FOREIGN KEY (`resistance_profile_id`)
+        REFERENCES `resistance_profiles`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Patient IC AST results (per IC pathogen, per antibiotic: AST value + MIC value)
+CREATE TABLE `patient_ic_ast_results` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `patient_ic_pathogen_id` INT NOT NULL,
+    `ast_antibiotic_id` INT NOT NULL,
+    `ast_value` TINYINT DEFAULT NULL COMMENT '0=Not available, 1=Resistant, 2=Susceptible, 3=Intermediate',
+    `mic_value` VARCHAR(20) DEFAULT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uq_ic_ast` (`patient_ic_pathogen_id`, `ast_antibiotic_id`),
+    INDEX `idx_picar_ic` (`patient_ic_pathogen_id`),
+    INDEX `idx_picar_antibiotic` (`ast_antibiotic_id`),
+    CONSTRAINT `fk_picar_ic` FOREIGN KEY (`patient_ic_pathogen_id`)
+        REFERENCES `patient_ic_pathogens`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_picar_antibiotic` FOREIGN KEY (`ast_antibiotic_id`)
+        REFERENCES `ast_antibiotics`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,11 +1,12 @@
 import {inject, Getter} from '@loopback/core';
 import {DefaultCrudRepository, repository, HasManyRepositoryFactory} from '@loopback/repository';
 import {MysqlDataSource} from '../datasources';
-import {Patient, PatientRelations, PatientIsolationSite, PatientBsiPathogen, PatientEmpiricalTherapy, PatientTargetedTherapy} from '../models';
+import {Patient, PatientRelations, PatientIsolationSite, PatientBsiPathogen, PatientEmpiricalTherapy, PatientTargetedTherapy, PatientIcPathogen} from '../models';
 import {PatientIsolationSiteRepository} from './patient-isolation-site.repository';
 import {PatientBsiPathogenRepository} from './patient-bsi-pathogen.repository';
 import {PatientEmpiricalTherapyRepository} from './patient-empirical-therapy.repository';
 import {PatientTargetedTherapyRepository} from './patient-targeted-therapy.repository';
+import {PatientIcPathogenRepository} from './patient-ic-pathogen.repository';
 
 export class PatientRepository extends DefaultCrudRepository<
   Patient, typeof Patient.prototype.id, PatientRelations
@@ -14,6 +15,7 @@ export class PatientRepository extends DefaultCrudRepository<
   public readonly bsiPathogens: HasManyRepositoryFactory<PatientBsiPathogen, typeof Patient.prototype.id>;
   public readonly empiricalTherapies: HasManyRepositoryFactory<PatientEmpiricalTherapy, typeof Patient.prototype.id>;
   public readonly targetedTherapies: HasManyRepositoryFactory<PatientTargetedTherapy, typeof Patient.prototype.id>;
+  public readonly infectiousComplications: HasManyRepositoryFactory<PatientIcPathogen, typeof Patient.prototype.id>;
 
   constructor(
     @inject('datasources.mysql') dataSource: MysqlDataSource,
@@ -25,6 +27,8 @@ export class PatientRepository extends DefaultCrudRepository<
     protected patientEmpiricalTherapyRepositoryGetter: Getter<PatientEmpiricalTherapyRepository>,
     @repository.getter('PatientTargetedTherapyRepository')
     protected patientTargetedTherapyRepositoryGetter: Getter<PatientTargetedTherapyRepository>,
+    @repository.getter('PatientIcPathogenRepository')
+    protected patientIcPathogenRepositoryGetter: Getter<PatientIcPathogenRepository>,
   ) {
     super(Patient, dataSource);
 
@@ -39,5 +43,8 @@ export class PatientRepository extends DefaultCrudRepository<
 
     this.targetedTherapies = this.createHasManyRepositoryFactoryFor('targetedTherapies', patientTargetedTherapyRepositoryGetter);
     this.registerInclusionResolver('targetedTherapies', this.targetedTherapies.inclusionResolver);
+
+    this.infectiousComplications = this.createHasManyRepositoryFactoryFor('infectiousComplications', patientIcPathogenRepositoryGetter);
+    this.registerInclusionResolver('infectiousComplications', this.infectiousComplications.inclusionResolver);
   }
 }

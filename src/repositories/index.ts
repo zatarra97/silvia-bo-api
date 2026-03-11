@@ -11,3 +11,6 @@ export * from './patient-bsi-resistance-profile.repository';
 export * from './patient-bsi-ast-result.repository';
 export * from './patient-empirical-therapy.repository';
 export * from './patient-targeted-therapy.repository';
+export * from './patient-ic-pathogen.repository';
+export * from './patient-ic-resistance-profile.repository';
+export * from './patient-ic-ast-result.repository';

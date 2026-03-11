@@ -14,12 +14,16 @@ import {
   PatientBsiAstResultRepository,
   PatientEmpiricalTherapyRepository,
   PatientTargetedTherapyRepository,
+  PatientIcPathogenRepository,
+  PatientIcResistanceProfileRepository,
+  PatientIcAstResultRepository,
   WardOfAdmissionRepository,
 } from '../repositories';
 
 const ALL_INCLUDES = [
   {relation: 'isolationSites'},
   {relation: 'bsiPathogens', scope: {include: [{relation: 'resistanceProfiles'}, {relation: 'astResults'}]}},
+  {relation: 'infectiousComplications', scope: {include: [{relation: 'resistanceProfiles'}, {relation: 'astResults'}]}},
   {relation: 'empiricalTherapies'},
   {relation: 'targetedTherapies'},
 ];
@@ -34,6 +38,9 @@ export class PatientController {
     @repository(PatientBsiAstResultRepository) public patientBsiAstResultRepository: PatientBsiAstResultRepository,
     @repository(PatientEmpiricalTherapyRepository) public patientEmpiricalTherapyRepository: PatientEmpiricalTherapyRepository,
     @repository(PatientTargetedTherapyRepository) public patientTargetedTherapyRepository: PatientTargetedTherapyRepository,
+    @repository(PatientIcPathogenRepository) public patientIcPathogenRepository: PatientIcPathogenRepository,
+    @repository(PatientIcResistanceProfileRepository) public patientIcResistanceProfileRepository: PatientIcResistanceProfileRepository,
+    @repository(PatientIcAstResultRepository) public patientIcAstResultRepository: PatientIcAstResultRepository,
     @repository(WardOfAdmissionRepository) public wardOfAdmissionRepository: WardOfAdmissionRepository,
   ) {}
 
@@ -71,13 +78,47 @@ export class PatientController {
     await this.patientBsiPathogenRepository.deleteAll({patientId});
   }
 
+  private async saveInfectiousComplications(patientId: number, icPathogens: any[]) {
+    for (const ic of icPathogens) {
+      const {resistanceProfiles, astResults, ...icData} = ic;
+      const created = await this.patientIcPathogenRepository.create({...icData, patientId});
+
+      if (resistanceProfiles && resistanceProfiles.length > 0) {
+        for (const rp of resistanceProfiles) {
+          await this.patientIcResistanceProfileRepository.create({
+            ...rp,
+            patientIcPathogenId: created.id!,
+          });
+        }
+      }
+
+      if (astResults && astResults.length > 0) {
+        for (const ar of astResults) {
+          await this.patientIcAstResultRepository.create({
+            ...ar,
+            patientIcPathogenId: created.id!,
+          });
+        }
+      }
+    }
+  }
+
+  private async deleteInfectiousComplications(patientId: number) {
+    const existing = await this.patientIcPathogenRepository.find({where: {patientId}});
+    for (const ic of existing) {
+      await this.patientIcResistanceProfileRepository.deleteAll({patientIcPathogenId: ic.id});
+      await this.patientIcAstResultRepository.deleteAll({patientIcPathogenId: ic.id});
+    }
+    await this.patientIcPathogenRepository.deleteAll({patientId});
+  }
+
   @post('/patients')
   @response(200, {content: {'application/json': {schema: getModelSchemaRef(Patient)}}})
   async create(
     @requestBody({content: {'application/json': {schema: {type: 'object'}}}})
     body: any,
   ): Promise<Patient> {
-    const {isolationSites, bsiPathogens, empiricalTherapies, targetedTherapies, ...patientData} = body;
+    const {isolationSites, bsiPathogens, infectiousComplications, empiricalTherapies, targetedTherapies, ...patientData} = body;
     const patient = await this.patientRepository.create(patientData);
 
     if (isolationSites?.length > 0) {
@@ -88,6 +129,10 @@ export class PatientController {
 
     if (bsiPathogens?.length > 0) {
       await this.saveBsiPathogens(patient.id!, bsiPathogens);
+    }
+
+    if (infectiousComplications?.length > 0) {
+      await this.saveInfectiousComplications(patient.id!, infectiousComplications);
     }
 
     if (empiricalTherapies?.length > 0) {
@@ -151,7 +196,7 @@ export class PatientController {
     @requestBody({content: {'application/json': {schema: {type: 'object'}}}})
     body: any,
   ): Promise<void> {
-    const {isolationSites, bsiPathogens, empiricalTherapies, targetedTherapies, ...patientData} = body;
+    const {isolationSites, bsiPathogens, infectiousComplications, empiricalTherapies, targetedTherapies, ...patientData} = body;
     await this.patientRepository.updateById(id, patientData);
 
     if (isolationSites !== undefined) {
@@ -162,6 +207,11 @@ export class PatientController {
     if (bsiPathogens !== undefined) {
       await this.deleteBsiPathogens(id);
       if (bsiPathogens.length > 0) await this.saveBsiPathogens(id, bsiPathogens);
+    }
+
+    if (infectiousComplications !== undefined) {
+      await this.deleteInfectiousComplications(id);
+      if (infectiousComplications.length > 0) await this.saveInfectiousComplications(id, infectiousComplications);
     }
 
     if (empiricalTherapies !== undefined) {
@@ -182,7 +232,7 @@ export class PatientController {
     @requestBody({content: {'application/json': {schema: {type: 'object'}}}})
     body: any,
   ): Promise<void> {
-    const {isolationSites, bsiPathogens, empiricalTherapies, targetedTherapies, ...patientData} = body;
+    const {isolationSites, bsiPathogens, infectiousComplications, empiricalTherapies, targetedTherapies, ...patientData} = body;
     delete patientData.id;
     delete patientData.createdAt;
     delete patientData.updatedAt;
@@ -200,6 +250,11 @@ export class PatientController {
       if (bsiPathogens.length > 0) await this.saveBsiPathogens(id, bsiPathogens);
     }
 
+    if (infectiousComplications !== undefined) {
+      await this.deleteInfectiousComplications(id);
+      if (infectiousComplications.length > 0) await this.saveInfectiousComplications(id, infectiousComplications);
+    }
+
     if (empiricalTherapies !== undefined) {
       await this.patientEmpiricalTherapyRepository.deleteAll({patientId: id});
       for (const t of empiricalTherapies) await this.patientEmpiricalTherapyRepository.create({...t, patientId: id});
@@ -215,6 +270,7 @@ export class PatientController {
   @response(204, {description: 'Patient DELETE success'})
   async deleteById(@param.path.number('id') id: number): Promise<void> {
     await this.deleteBsiPathogens(id);
+    await this.deleteInfectiousComplications(id);
     await this.patientIsolationSiteRepository.deleteAll({patientId: id});
     await this.patientEmpiricalTherapyRepository.deleteAll({patientId: id});
     await this.patientTargetedTherapyRepository.deleteAll({patientId: id});
