@@ -16,6 +16,9 @@ export class PatientIcPathogen extends Entity {
   @property({type: 'number', required: true, mysql: {dataType: 'INT', columnName: 'bsi_pathogen_id'}})
   bsiPathogenId: number;
 
+  @property({type: 'number', mysql: {dataType: 'INT', columnName: 'site_of_isolation_id'}})
+  siteOfIsolationId?: number;
+
   @property({type: 'number', required: true, mysql: {dataType: 'TINYINT', columnName: 'pathogen_order'}})
   pathogenOrder: number;
 
