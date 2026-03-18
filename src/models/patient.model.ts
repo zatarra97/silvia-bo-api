@@ -63,6 +63,24 @@ export class Patient extends Entity {
   bsiDiagnosisDate?: string;
 
   @property({
+    type: 'date',
+    mysql: {dataType: 'DATE', columnName: 'admission_date'},
+  })
+  admissionDate?: string;
+
+  @property({
+    type: 'date',
+    mysql: {dataType: 'DATE', columnName: 'discharge_date'},
+  })
+  dischargeDate?: string;
+
+  @property({
+    type: 'number',
+    mysql: {dataType: 'INT', columnName: 'los'},
+  })
+  los?: number;
+
+  @property({
     type: 'number',
     mysql: {dataType: 'INT', columnName: 'sofa_score'},
   })
