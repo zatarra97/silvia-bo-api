@@ -18,7 +18,13 @@ import {
   PatientIcResistanceProfileRepository,
   PatientIcAstResultRepository,
   WardOfAdmissionRepository,
+  BsiPathogenRepository,
+  ResistanceProfileRepository,
+  AstAntibioticRepository,
 } from '../repositories';
+import {
+  computeResistanceGroup, resistanceGroupName, ResistanceGroupCode, ResistanceLookups,
+} from '../utils/resistance-group';
 
 const ALL_INCLUDES = [
   {relation: 'isolationSites'},
@@ -27,6 +33,19 @@ const ALL_INCLUDES = [
   {relation: 'empiricalTherapies'},
   {relation: 'targetedTherapies'},
 ];
+
+// Relazioni sufficienti per calcolare il gruppo di resistenza
+const RESISTANCE_INCLUDES = [
+  {relation: 'bsiPathogens', scope: {include: [{relation: 'resistanceProfiles'}, {relation: 'astResults'}]}},
+];
+
+// Estrae dal where il filtro virtuale `resistanceGroup` (non è una colonna del DB)
+function extractResistanceGroup(where: any): {where: any; group: ResistanceGroupCode | undefined} {
+  if (!where || where.resistanceGroup === undefined) return {where, group: undefined};
+  const {resistanceGroup, ...rest} = where;
+  const code = Number(resistanceGroup);
+  return {where: rest, group: (Number.isInteger(code) ? code : -1) as ResistanceGroupCode};
+}
 
 @authenticate('cognito')
 export class PatientController {
@@ -42,7 +61,20 @@ export class PatientController {
     @repository(PatientIcResistanceProfileRepository) public patientIcResistanceProfileRepository: PatientIcResistanceProfileRepository,
     @repository(PatientIcAstResultRepository) public patientIcAstResultRepository: PatientIcAstResultRepository,
     @repository(WardOfAdmissionRepository) public wardOfAdmissionRepository: WardOfAdmissionRepository,
+    @repository(BsiPathogenRepository) public bsiPathogenRepository: BsiPathogenRepository,
+    @repository(ResistanceProfileRepository) public resistanceProfileRepository: ResistanceProfileRepository,
+    @repository(AstAntibioticRepository) public astAntibioticRepository: AstAntibioticRepository,
   ) {}
+
+  private async loadResistanceLookups(): Promise<ResistanceLookups> {
+    const [pathogens, profiles, antibiotics] = await Promise.all([
+      this.bsiPathogenRepository.find(),
+      this.resistanceProfileRepository.find(),
+      this.astAntibioticRepository.find(),
+    ]);
+    const toMap = (items: {id?: number; name: string}[]) => new Map(items.map(i => [i.id!, i.name]));
+    return {pathogens: toMap(pathogens), profiles: toMap(profiles), antibiotics: toMap(antibiotics)};
+  }
 
   private async saveBsiPathogens(patientId: number, bsiPathogens: any[]) {
     for (const bp of bsiPathogens) {
@@ -153,24 +185,50 @@ export class PatientController {
   @get('/patients/count')
   @response(200, {content: {'application/json': {schema: CountSchema}}})
   async count(@param.where(Patient) where?: Where<Patient>): Promise<Count> {
-    return this.patientRepository.count(where);
+    const extracted = extractResistanceGroup(where);
+    if (extracted.group === undefined) return this.patientRepository.count(where);
+
+    // Il gruppo è calcolato, quindi il conteggio va fatto in memoria
+    const [patients, lookups] = await Promise.all([
+      this.patientRepository.find({where: extracted.where, include: RESISTANCE_INCLUDES}),
+      this.loadResistanceLookups(),
+    ]);
+    const count = patients.filter(p => computeResistanceGroup(p, lookups) === extracted.group).length;
+    return {count};
   }
 
   @get('/patients')
   @response(200, {content: {'application/json': {schema: {type: 'array', items: getModelSchemaRef(Patient)}}}})
   async find(@param.filter(Patient) filter?: Filter<Patient>): Promise<any[]> {
-    const mergedFilter: Filter<Patient> = {...filter, include: ALL_INCLUDES};
-    const patients = await this.patientRepository.find(mergedFilter);
+    const extracted = extractResistanceGroup(filter?.where);
+    const byGroup = extracted.group !== undefined;
+    // Con il filtro per gruppo la paginazione si applica dopo il calcolo del gruppo
+    const mergedFilter: Filter<Patient> = byGroup
+      ? {...filter, where: extracted.where, limit: undefined, skip: undefined, offset: undefined, include: ALL_INCLUDES}
+      : {...filter, include: ALL_INCLUDES};
+    const [patients, wards, lookups] = await Promise.all([
+      this.patientRepository.find(mergedFilter),
+      this.wardOfAdmissionRepository.find(),
+      this.loadResistanceLookups(),
+    ]);
 
-    const wards = await this.wardOfAdmissionRepository.find();
     const wardMap = new Map<number, string>();
     for (const w of wards) { if (w.id != null) wardMap.set(w.id, w.name); }
 
-    return patients.map(p => {
+    let result = patients.map(p => {
       const enriched = p.toJSON() as any;
       if (p.wardOfAdmissionId != null) enriched.wardOfAdmissionName = wardMap.get(p.wardOfAdmissionId);
+      enriched.resistanceGroup = computeResistanceGroup(p, lookups);
+      enriched.resistanceGroupName = resistanceGroupName(enriched.resistanceGroup);
       return enriched;
     });
+
+    if (byGroup) {
+      result = result.filter(p => p.resistanceGroup === extracted.group);
+      const skip = filter?.skip ?? filter?.offset ?? 0;
+      result = result.slice(skip, filter?.limit ? skip + filter.limit : undefined);
+    }
+    return result;
   }
 
   @get('/patients/{id}')
@@ -186,6 +244,8 @@ export class PatientController {
       const ward = await this.wardOfAdmissionRepository.findById(patient.wardOfAdmissionId);
       enriched.wardOfAdmissionName = ward.name;
     }
+    enriched.resistanceGroup = computeResistanceGroup(patient, await this.loadResistanceLookups());
+    enriched.resistanceGroupName = resistanceGroupName(enriched.resistanceGroup);
     return enriched;
   }
 

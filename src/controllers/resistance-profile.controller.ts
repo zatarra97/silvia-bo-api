@@ -3,6 +3,7 @@ import {Count, CountSchema, Filter, FilterExcludingWhere, repository, Where} fro
 import {del, get, getModelSchemaRef, param, patch, put, post, requestBody, response} from '@loopback/rest';
 import {ResistanceProfile} from '../models';
 import {ResistanceProfileRepository} from '../repositories';
+import {profileGroupLabel} from '../utils/resistance-group';
 
 @authenticate('cognito')
 export class ResistanceProfileController {
@@ -21,7 +22,11 @@ export class ResistanceProfileController {
 
   @get('/resistance-profiles')
   @response(200, {content: {'application/json': {schema: {type: 'array', items: getModelSchemaRef(ResistanceProfile)}}}})
-  async find(@param.filter(ResistanceProfile) filter?: Filter<ResistanceProfile>): Promise<ResistanceProfile[]> { return this.repo.find(filter); }
+  async find(@param.filter(ResistanceProfile) filter?: Filter<ResistanceProfile>): Promise<any[]> {
+    const profiles = await this.repo.find(filter);
+    // Gruppo di resistenza associato al profilo (vedi utils/resistance-group)
+    return profiles.map(p => ({...p.toJSON(), resistanceGroup: profileGroupLabel(p.name)}));
+  }
 
   @get('/resistance-profiles/{id}')
   @response(200, {content: {'application/json': {schema: getModelSchemaRef(ResistanceProfile)}}})
