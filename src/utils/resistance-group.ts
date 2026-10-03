@@ -28,7 +28,8 @@ const P_AERUGINOSA = /^pseudomonas aeruginosa/i;
 // (es. imipenem-relebactam) sono escluse dal match esatto.
 const CARBAPENEM = /^(imipenem|meropenem)$/i;
 
-const CPE_PROFILE = /\b(kpc|oxa-?48|ndm|vim|kre)\b/i;
+// CRE (ex KRE): profilo di Enterobacterales resistenti ai carbapenemi
+const CPE_PROFILE = /\b(kpc|oxa-?48|ndm|vim|kre|cre)\b/i;
 const ESBL_AMPC_PROFILE = /\b(esbl|ampc)\b/i;
 const CRAB_PROFILE = /\bcrab\b/i;
 const MDR_PROFILE = /\bmdr\b/i;
